@@ -41,12 +41,23 @@ def run(preview: bool) -> str:
     try:
         fetcher = build_google_fetcher(config.SHEET_ID, json.loads(config.GOOGLE_SA_JSON))
         txns = read_ledger(fetcher)
+        print(f"[ledger] read {len(txns)} transaction row(s) from the sheet")
     except Exception as exc:  # noqa: BLE001
         errors["positions"] = f"ledger unavailable: {exc}"
+        print(f"[ledger] ERROR reading sheet: {exc}")
 
     ledger = derive_positions(txns)
+    # Diagnostics (no amounts): how many rows were skipped and why, and how many
+    # open positions resulted. Surfaced to stdout for the Actions log and to the
+    # email so an empty report is explainable.
+    if ledger.skipped:
+        for s in ledger.skipped:
+            print(f"[ledger] skipped row: {s['reason']}")
+        reasons = "; ".join(sorted({s["reason"] for s in ledger.skipped}))
+        errors.setdefault("positions", f"{len(ledger.skipped)} row(s) skipped: {reasons}")
     open_positions = ledger.open_positions()
     tickers = list(open_positions.keys())
+    print(f"[ledger] {len(open_positions)} open position(s): {', '.join(tickers) or 'none'}")
 
     # Prices + USD/IDR.
     all_tickers = list(dict.fromkeys(tickers + config.BENCHMARKS + list(DEFAULT_WATCHLIST)))
