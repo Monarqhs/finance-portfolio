@@ -78,7 +78,14 @@ def build_google_fetcher(sheet_id: str, sa_info: dict, range_: str = "transactio
         resp = (
             service.spreadsheets()
             .values()
-            .get(spreadsheetId=sheet_id, range=range_)
+            .get(
+                spreadsheetId=sheet_id,
+                range=range_,
+                # Read raw cell values, not the display text. This makes number
+                # parsing independent of the spreadsheet's locale and display
+                # format (e.g. a decimal shown as "0" but really 0.3083...).
+                valueRenderOption="UNFORMATTED_VALUE",
+            )
             .execute()
         )
         return resp.get("values", [])
