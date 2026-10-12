@@ -53,6 +53,14 @@ def main() -> int:
     for i, row in enumerate(grid[:8]):
         print(f"  row {i}: {row}")
 
+    # Deep check: show the TYPE and repr of the quantity cell (column D, index 3)
+    # for each data row, so we can tell a real 0 from a string "0" from a decimal.
+    print("\nQuantity cell types (column D):")
+    for i, row in enumerate(grid[1:], start=1):
+        q = row[3] if len(row) > 3 else "(missing)"
+        print(f"  row {i} ({row[1] if len(row) > 1 else '?'}): "
+              f"value={q!r}  type={type(q).__name__}")
+
     txns = rows_to_transactions(grid)
     print(f"\nParsed transactions: {len(txns)}")
     for t in txns:
