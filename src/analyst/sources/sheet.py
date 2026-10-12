@@ -14,7 +14,10 @@ from typing import Callable
 
 # Expected header, in order. Matching is case-insensitive and tolerant of extra
 # trailing columns.
-HEADER = ["date", "ticker", "action", "quantity", "price_usd", "fee_usd", "usdidr", "note"]
+HEADER = [
+    "date", "ticker", "action", "quantity", "price_usd", "fee_usd", "usdidr",
+    "note", "currency",
+]
 
 
 def rows_to_transactions(grid: list[list]) -> list[dict]:
@@ -50,6 +53,7 @@ def rows_to_transactions(grid: list[list]) -> list[dict]:
             "fee_usd": cell("fee_usd"),
             "usdidr": cell("usdidr"),
             "note": cell("note"),
+            "currency": cell("currency"),
         })
     return txns
 
@@ -61,7 +65,7 @@ def read_ledger(fetch_grid: Callable[[], list[list]]) -> list[dict]:
     return rows_to_transactions(grid)
 
 
-def build_google_fetcher(sheet_id: str, sa_info: dict, range_: str = "transactions!A:H"):
+def build_google_fetcher(sheet_id: str, sa_info: dict, range_: str = "transactions!A:I"):
     """Build a grid fetcher backed by the Google Sheets API (read-only).
 
     Imported lazily so the Google client is only needed in production, not for

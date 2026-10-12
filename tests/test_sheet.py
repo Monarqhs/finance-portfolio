@@ -46,3 +46,14 @@ def test_read_ledger_uses_injected_fetcher():
 
 def test_empty_grid():
     assert rows_to_transactions([]) == []
+
+
+def test_currency_column_is_read():
+    # The currency column (for IDR-native rows like RDPU) must be parsed.
+    grid = [
+        ["date", "ticker", "action", "quantity", "price_usd", "fee_usd", "usdidr", "note", "currency"],
+        ["2026-10-06", "RDPU", "BUY", "1", "2002079", "0", "", "cash", "IDR"],
+    ]
+    txns = rows_to_transactions(grid)
+    assert txns[0]["currency"] == "IDR"
+    assert txns[0]["usdidr"] is None  # blank, allowed for IDR rows
