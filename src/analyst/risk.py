@@ -41,7 +41,11 @@ DEFAULT_CLASSIFICATION: dict[str, Classification] = {
     "VOO": Classification("Broad market", "Broad market", "ETF", memory_factor=0.0),
     "GC=F": Classification("Commodity", "Gold/geopolitical hedge", "Commodity", memory_factor=0.0),
     "CASH": Classification("Cash", "Cash", "Cash", memory_factor=0.0),
+    "RDPU": Classification("Cash", "Money market / RDPU", "Cash", memory_factor=0.0),
 }
+
+# Tickers treated as cash for the cash-buffer metric.
+CASH_TICKERS = {"CASH", "RDPU"}
 
 
 @dataclass
@@ -145,7 +149,7 @@ def analyze_risk(
     return_series: dict[str, list[float]] = {}
     notes: list[str] = []
     for h in holdings:
-        if h.ticker == "CASH":
+        if h.ticker in CASH_TICKERS:
             continue
         if len(h.closes) < 2:
             vol[h.ticker] = None
@@ -200,7 +204,7 @@ def analyze_risk(
             f"Average pairwise correlation {avg_corr:.2f} (holdings move together).",
             "Diversification is lower than the number of positions suggests.",
         ))
-    cash_w = weights.get("CASH", 0.0)
+    cash_w = sum(weights.get(t, 0.0) for t in CASH_TICKERS)
     if cash_w < thr["low_cash_buffer"]:
         flags.append(Flag(
             "LOW_CASH_BUFFER", "amber",
@@ -244,8 +248,8 @@ def _portfolio_return(
     acc = 0.0
     covered = 0.0
     for h in holdings:
-        if h.ticker == "CASH":
-            covered += weights.get("CASH", 0.0)
+        if h.ticker in CASH_TICKERS:
+            covered += weights.get(h.ticker, 0.0)
             continue
         r = _series_return(h.closes, periods)
         w = weights.get(h.ticker, 0.0)

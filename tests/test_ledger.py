@@ -113,3 +113,47 @@ def test_tc10_ticker_normalization():
     ])
     assert "SMH" in res.positions
     assert res.positions["SMH"].qty == 2
+
+
+# --- IDR-native support (follow-up: RDPU / cash in rupiah) ----------------- #
+def _idr_row(date, ticker, action, qty, price_idr, fee=0, note=""):
+    return {
+        "date": date, "ticker": ticker, "action": action, "quantity": qty,
+        "price_usd": price_idr,  # for IDR rows this column carries the IDR price
+        "fee_usd": fee, "currency": "IDR", "note": note,
+    }
+
+
+def test_idr_row_needs_no_usdidr():
+    # usdidr omitted entirely; IDR currency makes it default to 1 (no conversion).
+    res = derive_positions([_idr_row("2026-01-01", "RDPU", "BUY", 1, 2_002_079)])
+    pos = res.positions["RDPU"]
+    assert pos.currency == "IDR"
+    assert pos.qty == 1
+    assert pos.cost_basis_idr == 2_002_079  # price * qty * 1, no FX
+
+
+def test_idr_position_has_zero_fx_pnl():
+    res = derive_positions([_idr_row("2026-01-01", "RDPU", "BUY", 1, 2_000_000)])
+    pnl = unrealized_pnl(res.positions["RDPU"], current_price=2_002_079, usdidr_now=17905)
+    # IDR-native: current FX forced to 1 -> all P&L is asset, FX P&L exactly 0.
+    assert round(pnl.fx_pnl_idr, 6) == 0.0
+    assert round(pnl.market_value_idr, 6) == 2_002_079
+    assert round(pnl.total_unrealized_idr, 6) == 2_079
+
+
+def test_usd_row_still_requires_usdidr():
+    bad = {
+        "date": "2026-01-01", "ticker": "SMH", "action": "BUY",
+        "quantity": 1, "price_usd": 600, "currency": "USD",  # no usdidr
+    }
+    res = derive_positions([bad])
+    assert "SMH" not in res.positions
+    assert res.skipped and "usdidr" in res.skipped[0]["reason"]
+
+
+def test_default_currency_is_usd_backward_compatible():
+    # A row with no 'currency' key behaves exactly as before (USD, needs usdidr).
+    res = derive_positions([_row("2026-01-01", "AAA", "BUY", 2, 10, 16000)])
+    assert res.positions["AAA"].currency == "USD"
+    assert res.positions["AAA"].qty == 2

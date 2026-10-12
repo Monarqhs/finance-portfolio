@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-REQUIRED_FIELDS = ("date", "ticker", "action", "quantity", "price_usd", "usdidr")
+# usdidr is required only for USD-denominated rows; IDR-native rows (cash/RDPU,
+# IDX stocks) default usdidr to 1 so no fake currency conversion is introduced.
+REQUIRED_FIELDS = ("date", "ticker", "action", "quantity", "price_usd")
 
 
 @dataclass
@@ -21,10 +23,11 @@ class Position:
 
     ticker: str
     qty: float = 0.0
-    avg_cost_usd: float = 0.0  # weighted-average cost per unit (USD)
+    avg_cost_usd: float = 0.0  # weighted-average cost per unit (USD, or IDR if currency==IDR)
     cost_basis_usd: float = 0.0  # qty * avg_cost_usd
-    cost_basis_idr: float = 0.0  # sum of qty * price_usd * usdidr at each BUY
+    cost_basis_idr: float = 0.0  # sum of qty * price * usdidr at each BUY
     realized_usd: float = 0.0
+    currency: str = "USD"  # "USD" or "IDR" (IDR-native rows carry prices in IDR)
 
     @property
     def is_open(self) -> bool:
@@ -46,15 +49,24 @@ def _clean_row(raw: dict) -> tuple[dict | None, str | None]:
     for f in REQUIRED_FIELDS:
         if raw.get(f) in (None, ""):
             return None, f"missing required field '{f}'"
+    currency = str(raw.get("currency") or "USD").strip().upper()
+    if currency not in ("USD", "IDR"):
+        return None, f"invalid currency '{currency}'"
+    # USD rows need an FX rate; IDR-native rows default to 1 (no conversion).
+    if currency == "USD" and raw.get("usdidr") in (None, ""):
+        return None, "missing required field 'usdidr'"
     try:
         row = {
             "date": str(raw["date"]).strip(),
             "ticker": str(raw["ticker"]).strip().upper(),
             "action": str(raw["action"]).strip().upper(),
             "quantity": float(raw["quantity"]),
+            # For IDR rows, price_usd carries the per-unit price in IDR; usdidr=1
+            # means cost_basis_idr == price * qty with no conversion.
             "price_usd": float(raw["price_usd"]),
             "fee_usd": float(raw.get("fee_usd") or 0.0),
-            "usdidr": float(raw["usdidr"]),
+            "usdidr": float(raw["usdidr"]) if currency == "USD" else 1.0,
+            "currency": currency,
             "note": str(raw.get("note") or "").strip(),
         }
     except (TypeError, ValueError) as exc:
@@ -92,7 +104,7 @@ def derive_positions(rows: list[dict]) -> LedgerResult:
 
     for row, _ in cleaned:
         t = row["ticker"]
-        pos = result.positions.setdefault(t, Position(ticker=t))
+        pos = result.positions.setdefault(t, Position(ticker=t, currency=row["currency"]))
         qty = row["quantity"]
         price = row["price_usd"]
         fee = row["fee_usd"]
@@ -142,6 +154,11 @@ def unrealized_pnl(pos: Position, current_price: float, usdidr_now: float) -> Pn
     The two sum to total IDR unrealized P&L (reconciliation guaranteed by
     construction below).
     """
+    # IDR-native positions carry no FX exposure: force the "current FX" to 1 so
+    # all P&L is pure asset P&L and fx_pnl_idr is exactly 0.
+    if pos.currency == "IDR":
+        usdidr_now = 1.0
+
     qty = pos.qty
     unrealized_usd = qty * (current_price - pos.avg_cost_usd)
 
