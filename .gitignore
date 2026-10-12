@@ -1,0 +1,22 @@
+# Secrets & credentials — NEVER commit (mirrors predecessor policy)
+credentials.json
+token.json
+*.pem
+.env
+.env.*
+service-account*.json
+
+# Local preview output
+preview.html
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/

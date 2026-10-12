@@ -1,0 +1,24 @@
+[project]
+name = "finance-portfolio"
+version = "0.1.0"
+description = "A personal investment analyst that emails a weekly portfolio report."
+requires-python = ">=3.11"
+# Core pipeline stays dependency-light (stdlib urllib for fetching, like the
+# predecessor). Integration dependencies (Google API client for Gmail/Sheets,
+# etc.) are added per-module as those modules are implemented.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
