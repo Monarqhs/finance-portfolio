@@ -32,7 +32,7 @@ def build_gemini_call(
     api_key: str,
     *,
     model: str | None = None,
-    timeout: int = 30,
+    timeout: int = 60,
     retries: int = 3,
     backoff: float = 2.0,
     _opener=None,
@@ -79,7 +79,17 @@ def build_gemini_call(
                     print(f"[gemini] {exc.code} transient; retry in {wait:.0f}s")
                     _sleep(wait)
                     continue
-                raise  # non-retryable, or out of attempts
+                raise  # non-retryable (bad key, 404), or out of attempts
+            except (TimeoutError, urllib.error.URLError, OSError) as exc:
+                # Network timeouts/connection errors are transient -> retry.
+                last_exc = exc
+                if attempt < retries - 1:
+                    wait = backoff * (2 ** attempt)
+                    print(f"[gemini] network/timeout ({type(exc).__name__}); "
+                          f"retry in {wait:.0f}s")
+                    _sleep(wait)
+                    continue
+                raise
         if last_exc:
             raise last_exc
         raise RuntimeError("gemini call made no attempts")
