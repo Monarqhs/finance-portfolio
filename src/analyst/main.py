@@ -126,8 +126,11 @@ def run(preview: bool) -> str:
         if config.GEMINI_API_KEY:
             from analyst.gemini_client import build_gemini_call
             llm_call = build_gemini_call(config.GEMINI_API_KEY)
+        else:
+            print("[narrative] GEMINI_API_KEY not set -> deterministic fallback")
         narr = generate_narrative(payload, llm_call, api_key=config.GEMINI_API_KEY or None)
         narrative_text, narrative_source = narr.text, narr.source
+        print(f"[narrative] source = {narrative_source}")
 
     # 4. RENDER -------------------------------------------------------------- #
     week_change = _portfolio_week_change(holdings)

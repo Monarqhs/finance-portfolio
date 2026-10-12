@@ -159,10 +159,15 @@ def generate_narrative(
     try:
         prompt = _build_prompt(payload)
         reply = llm_call(prompt)
-    except Exception:  # noqa: BLE001 - external call, stay fail-safe
+    except Exception as exc:  # noqa: BLE001 - external call, stay fail-safe
+        print(f"[narrative] LLM call failed ({type(exc).__name__}: {exc}) -> fallback")
         return Narrative(deterministic_summary(payload), "deterministic-fallback")
 
-    if _has_banned_phrase(reply) or not _is_grounded(reply, payload):
+    if _has_banned_phrase(reply):
+        print("[narrative] LLM reply contained a banned phrase -> fallback")
+        return Narrative(deterministic_summary(payload), "deterministic-fallback")
+    if not _is_grounded(reply, payload):
+        print("[narrative] LLM reply had an ungrounded number -> fallback")
         return Narrative(deterministic_summary(payload), "deterministic-fallback")
 
     return Narrative(reply.strip(), "llm")
