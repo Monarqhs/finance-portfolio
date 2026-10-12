@@ -76,6 +76,31 @@ def test_retries_on_503_then_succeeds():
     assert calls["n"] == 2  # first 503, then success
 
 
+def test_retries_on_timeout_then_succeeds():
+    calls = {"n": 0}
+
+    class _Ctx:
+        def __enter__(self_):
+            return io.BytesIO(json.dumps(
+                {"candidates": [{"content": {"parts": [{"text": "ok after timeout"}]}}]}
+            ).encode())
+
+        def __exit__(self_, *a):
+            return False
+
+    def opener(req, timeout=0):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TimeoutError("read timed out")
+        return _Ctx()
+
+    call = build_gemini_call(
+        "K", retries=3, backoff=0.0, _opener=opener, _sleep=lambda s: None
+    )
+    assert call("p") == "ok after timeout"
+    assert calls["n"] == 2  # timed out once, then succeeded
+
+
 def test_non_retryable_error_raises():
     import urllib.error
 
