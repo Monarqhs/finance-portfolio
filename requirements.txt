@@ -1,0 +1,6 @@
+# Runtime integration dependencies (Gmail + Google Sheets + Gemini are all
+# reached over HTTP; the Google client is only needed for Gmail/Sheets auth).
+# The analysis core itself is stdlib-only.
+google-api-python-client>=2.149.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.1
